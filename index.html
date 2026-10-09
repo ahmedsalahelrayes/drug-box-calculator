@@ -1,4 +1,5 @@
-<!DOCTYPE html>
+
+  <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -43,7 +44,7 @@
         }
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 15px;
         }
         .form-group {
@@ -110,15 +111,35 @@
 <div class="container">
     <h1>حاسبة أسعار علب الأدوية (كلاسيك)</h1>
 
-    <div class="section-title">1. مدخلات العلبة والكمية</div>
+    <div class="section-title">1. مقاسات العلبة والكمية</div>
     <div class="grid">
+        <div class="form-group">
+            <label for="length">طول العلبة (سم):</label>
+            <input type="number" id="length" value="5" step="0.1">
+        </div>
+        <div class="form-group">
+            <label for="width">عرض العلبة (سم):</label>
+            <input type="number" id="width" value="3" step="0.1">
+        </div>
+        <div class="form-group">
+            <label for="height">ارتفاع العلبة (سم):</label>
+            <input type="number" id="height" value="10" step="0.1">
+        </div>
         <div class="form-group">
             <label for="quantity">الكمية المطلوبة (علبة):</label>
             <input type="number" id="quantity" value="5000">
         </div>
+    </div>
+
+    <div class="section-title">2. مقاس الفرخ والطباعة</div>
+    <div class="grid">
         <div class="form-group">
-            <label for="boxesPerSheet">عدد العلب في الفرخ الواحد:</label>
-            <input type="number" id="boxesPerSheet" value="12">
+            <label for="sheetWidth">عرض فرخ الورق (سم):</label>
+            <input type="number" id="sheetWidth" value="70">
+        </div>
+        <div class="form-group">
+            <label for="sheetHeight">طول فرخ الورق (سم):</label>
+            <input type="number" id="sheetHeight" value="100">
         </div>
         <div class="form-group">
             <label for="colors">عدد الألوان (وش):</label>
@@ -130,7 +151,7 @@
         </div>
     </div>
 
-    <div class="section-title">2. أسعار الخامات والتصنيع (قابلة للتعديل)</div>
+    <div class="section-title">3. أسعار الخامات والتصنيع</div>
     <div class="grid">
         <div class="form-group">
             <label for="paperPrice">سعر فرخ الورق (جنيه):</label>
@@ -157,17 +178,21 @@
     <button onclick="calculatePrice()">احساب التكلفة والسعر</button>
 
     <div class="result-box" id="resultSection" style="display: none;">
-        <h3>نتائج الحسابات:</h3>
+        <h3>نتائج الحسابات الدقيقة:</h3>
         <div class="result-item">
-            <span>عدد الأفرخ المطلوبة (بالهالك):</span>
-            <span id="resSheets">0</span>
+            <span>مساحة العلبة المفرودة التقريبية:</span>
+            <span id="resBoxArea">0 سم²</span>
         </div>
         <div class="result-item">
-            <span>تكلفة الورق الإجمالية:</span>
-            <span id="resPaperCost">0 ج.م</span>
+            <span>عدد العلب التقديري في الفرخ الواحد:</span>
+            <span id="resBoxesPerSheet">0 علبة</span>
         </div>
         <div class="result-item">
-            <span>تكلفة الطباعة والبليتات:</span>
+            <span>عدد الأفرخ المطلوبة (بالهالك 10%):</span>
+            <span id="resSheets">0 فرخ</span>
+        </div>
+        <div class="result-item">
+            <span>تكلفة الورق والطباعة والبليتات:</span>
             <span id="resPrintCost">0 ج.م</span>
         </div>
         <div class="result-item">
@@ -183,16 +208,36 @@
 
 <script>
 function calculatePrice() {
-    // قراءة المدخلات
+    // 1. مدخلات المقاسات
+    let l = parseFloat(document.getElementById('length').value) || 0;
+    let w = parseFloat(document.getElementById('width').value) || 0;
+    let h = parseFloat(document.getElementById('height').value) || 0;
     let qty = parseFloat(document.getElementById('quantity').value) || 0;
-    let boxesPerSheet = parseFloat(document.getElementById('boxesPerSheet').value) || 1;
+
+    // مقاس فرخ الورق
+    let sW = parseFloat(document.getElementById('sheetWidth').value) || 70;
+    let sH = parseFloat(document.getElementById('sheetHeight').value) || 100;
+
+    // أسعار الخامات
     let paperPrice = parseFloat(document.getElementById('paperPrice').value) || 0;
     let platePrice = parseFloat(document.getElementById('platePrice').value) || 0;
     let printPricePerThousand = parseFloat(document.getElementById('printPrice').value) || 0;
     let finishingPerBox = parseFloat(document.getElementById('finishingPrice').value) || 0;
     let profitMargin = parseFloat(document.getElementById('profitMargin').value) || 0;
 
-    // حساب عدد الأفرخ الأساسي مع إضافة 10% هالك طباعة وقص
+    // حساب تقريبي لمقاس العلبة مفرودة (الجوانب الأربعة + الألسنة واللصق بزيادة 20% للتفريغ)
+    // محيط العلبة = (الطول + العرض) * 2 + الارتفاع أو حسب تصميم الصندوق الكلاسيك
+    let unfoldedWidth = (l + w) * 2 + 1.5; // مع مسافة اللصق
+    let unfoldedHeight = h + w + 2;       // مع الألسنة فوق وتحت
+    let boxArea = unfoldedWidth * unfoldedHeight;
+
+    let sheetArea = sW * sH;
+    
+    // عدد العلب في الفرخ مع مراعاة مساحة الفاقد بين التبصيم (نقسم مساحة الفرخ على مساحة العلبة ونخصم 15% هالك تبصيم)
+    let boxesPerSheet = Math.floor((sheetArea / boxArea) * 0.85);
+    if (boxesPerSheet < 1) boxesPerSheet = 1;
+
+    // عدد الأفرخ مع هالك الطباعة 10%
     let rawSheets = qty / boxesPerSheet;
     let totalSheets = Math.ceil(rawSheets * 1.10);
 
@@ -201,26 +246,22 @@ function calculatePrice() {
     let printingTotalCost = (totalSheets / 1000) * printPricePerThousand;
     let finishingTotalCost = qty * finishingPerBox;
     
-    // إجمالي التكلفة بدون ربح
     let baseCost = paperTotalCost + printingTotalCost + platePrice + finishingTotalCost;
-
-    // إضافة هامش الربح
     let finalTotalWithProfit = baseCost * (1 + (profitMargin / 100));
-
-    // سعر العلبة الواحدة
     let pricePerBox = finalTotalWithProfit / qty;
 
     // عرض النتائج
+    document.getElementById('resBoxArea').innerText = boxArea.toFixed(1) + " سم²";
+    document.getElementById('resBoxesPerSheet').innerText = boxesPerSheet + " علبة";
     document.getElementById('resSheets').innerText = totalSheets.toLocaleString() + " فرخ";
-    document.getElementById('resPaperCost').innerText = paperTotalCost.toLocaleString() + " ج.م";
-    document.getElementById('resPrintCost').innerText = (printingTotalCost + platePrice).toLocaleString() + " ج.م";
+    document.getElementById('resPrintCost').innerText = (paperTotalCost + printingTotalCost + platePrice).toLocaleString(undefined, {maximumFractionDigits: 0}) + " ج.م";
     document.getElementById('resTotalCost').innerText = finalTotalWithProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " ج.م";
     document.getElementById('resBoxPrice').innerText = pricePerBox.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " ج.م";
 
-    // إظهار صندوق النتائج
     document.getElementById('resultSection').style.display = 'block';
 }
 </script>
 
 </body>
 </html>
+
